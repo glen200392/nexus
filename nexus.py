@@ -1,0 +1,277 @@
+"""
+NEXUS — Main Entry Point
+Enterprise AI Agent Management Platform
+
+Usage:
+    python nexus.py init              # Initialize databases and config
+    python nexus.py start             # Start all services
+    python nexus.py task "prompt"     # Submit a one-shot task
+    python nexus.py status            # Show system status
+    python nexus.py pause <task_id>   # Pause a running task
+    python nexus.py resume <task_id>  # Resume a paused task
+    python nexus.py costs             # Show cost report
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import sys
+import logging
+from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+)
+logger = logging.getLogger("nexus")
+
+
+# ─── Bootstrap ────────────────────────────────────────────────────────────────
+
+async def init_system() -> dict:
+    """Initialize all components and return the assembled system."""
+    logger.info("Initializing NEXUS...")
+
+    # Ensure data directories exist
+    for d in ["data", "data/vector_store", "data/graph", "logs"]:
+        Path(d).mkdir(parents=True, exist_ok=True)
+
+    # ── Layer 0: Infrastructure ───────────────────────────────────────────────
+    from nexus.core.llm.router import LLMRouter
+    from nexus.core.llm.client import LLMClient
+    from nexus.skills.registry import SkillRegistry
+    from nexus.core.governance import GovernanceManager
+    from nexus.knowledge.rag.engine import RAGEngine
+    from nexus.mcp.client import MCPClient
+
+    router     = LLMRouter()
+    llm_client = LLMClient()
+    skills     = SkillRegistry()
+    skills.load_all()
+    governance = GovernanceManager()
+    from nexus.core.eu_ai_act_classifier import get_classifier as get_eu_classifier
+    eu_classifier = get_eu_classifier()   # pre-warm rule engine
+    rag_engine = RAGEngine()
+    mcp_client = MCPClient()
+
+    # Connect all MCP servers
+    mcp_servers = {
+        "filesystem":          "mcp/servers/filesystem_server.py",
+        "git":                 "mcp/servers/git_server.py",
+        "fetch":               "mcp/servers/fetch_server.py",
+        "sqlite":              "mcp/servers/sqlite_server.py",
+        "sequential_thinking": "mcp/servers/sequential_thinking_server.py",
+        # Round 2 servers
+        "github":              "mcp/servers/github_server.py",
+        "chroma":              "mcp/servers/chroma_server.py",
+        "playwright":          "mcp/servers/playwright_server.py",
+        # Round 3 servers
+        "slack":               "mcp/servers/slack_server.py",
+        "postgres":            "mcp/servers/postgres_server.py",
+        "prometheus":          "mcp/servers/prometheus_server.py",
+        # Wave 1 — AI governance & monitoring
+        "arxiv_monitor":       "mcp/servers/arxiv_monitor_server.py",
+        "rss_aggregator":      "mcp/servers/rss_aggregator_server.py",
+        # Wave 3 — MLOps
+        "mlflow":              "mcp/servers/mlflow_server.py",
+    }
+    for server_name, script in mcp_servers.items():
+        try:
+            await mcp_client.connect(
+                server_name,
+                [sys.executable, str(Path(__file__).parent / script)],
+            )
+            logger.info("MCP server connected: %s", server_name)
+        except Exception as exc:
+            logger.warning("MCP server '%s' failed: %s", server_name, exc)
+
+    # ── Layer 1: Trigger Manager ──────────────────────────────────────────────
+    from nexus.core.orchestrator.trigger import TriggerManager
+    trigger_mgr = TriggerManager()
+    cli_trigger = trigger_mgr.build_cli_trigger()
+
+    # ── Layer 2: Perception Engine ────────────────────────────────────────────
+    from nexus.core.orchestrator.perception import PerceptionEngine
+    perception = PerceptionEngine(
+        llm_caller=_build_llm_caller(router),
+        memory_store=rag_engine,
+    )
+
+    # ── Layer 3: Swarms + Master Orchestrator ─────────────────────────────────
+    from nexus.core.orchestrator.swarm import SwarmRegistry
+    from nexus.core.orchestrator.master import MasterOrchestrator
+
+    shared_deps = {
+        "router":         router,
+        "llm_client":     llm_client,
+        "memory_store":   rag_engine,
+        "mcp_client":     mcp_client,
+        "skill_registry": skills,
+    }
+    swarm_registry = SwarmRegistry()
+    swarm_registry.load_all(shared_deps)
+
+    orchestrator = MasterOrchestrator(
+        swarm_registry=swarm_registry.to_dict(),
+        quality_optimizer=governance.optimizer,
+    )
+
+    # ── Layer 5: Dashboard injection ─────────────────────────────────────────
+    from nexus.api.dashboard import inject as dashboard_inject
+    from nexus.api.webhook import set_event_queue
+    dashboard_inject(orchestrator, governance, cli_trigger)
+    set_event_queue(trigger_mgr.queue)
+
+    logger.info("NEXUS initialized ✓")
+    logger.info("  Skills loaded:  %d", len(skills.list_all()))
+    logger.info("  Swarms loaded:  %d", len(swarm_registry.list_all()))
+    logger.info("  MCP servers:    %s", mcp_client.list_servers())
+
+    return {
+        "router":        router,
+        "llm_client":    llm_client,
+        "skills":        skills,
+        "governance":    governance,
+        "rag_engine":    rag_engine,
+        "mcp_client":    mcp_client,
+        "trigger_mgr":   trigger_mgr,
+        "cli_trigger":   cli_trigger,
+        "perception":    perception,
+        "orchestrator":  orchestrator,
+        "swarm_registry": swarm_registry,
+    }
+
+
+def _build_llm_caller(router):
+    """
+    Build the async LLM caller function.
+    In production, this would call Ollama or the appropriate API.
+    """
+    async def call_llm(prompt: str, system: str, model: str = "qwen2.5:7b") -> str:
+        try:
+            import httpx
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": prompt},
+                ],
+                "stream": False,
+            }
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    "http://localhost:11434/api/chat",
+                    json=payload,
+                )
+                resp.raise_for_status()
+                return resp.json()["message"]["content"]
+        except Exception as exc:
+            logger.warning("LLM call failed (%s): %s", model, exc)
+            return "{}"  # Perception engine handles empty JSON gracefully
+    return call_llm
+
+
+# ─── Main Event Loop ──────────────────────────────────────────────────────────
+
+async def run_task(system: dict, prompt: str) -> None:
+    """Submit a task and wait for result."""
+    from nexus.core.orchestrator.trigger import TriggerPriority
+
+    cli: "CLITrigger" = system["cli_trigger"]
+    perception: "PerceptionEngine" = system["perception"]
+    orchestrator: "MasterOrchestrator" = system["orchestrator"]
+    trigger_mgr: "TriggerManager" = system["trigger_mgr"]
+    governance: "GovernanceManager" = system["governance"]
+
+    # Layer 1 → submit
+    event_id = await cli.submit(prompt)
+    logger.info("Event submitted: %s", event_id[:8])
+
+    # Layer 2 → perceive
+    event = await trigger_mgr.queue.get()
+    perceived = await perception.analyze(event)
+    logger.info(
+        "Perceived: domain=%s complexity=%s privacy=%s agents=%s",
+        perceived.domain.value, perceived.complexity.value,
+        perceived.privacy_tier.value, perceived.required_agents,
+    )
+
+    # Confirmation gate for destructive actions
+    if perceived.requires_confirmation or perceived.is_destructive:
+        print(f"\n⚠️  This task requires confirmation:")
+        print(f"   Intent: {perceived.intent}")
+        print(f"   Destructive: {perceived.is_destructive}")
+        confirm = input("Proceed? (yes/no): ").strip().lower()
+        if confirm != "yes":
+            print("Task cancelled.")
+            return
+
+    # Layer 3 → orchestrate
+    task = await orchestrator.dispatch(perceived.__dict__)
+
+    # Output
+    print(f"\n{'='*60}")
+    print(f"Task: {task.task_id[:8]}")
+    print(f"Status: {task.status.value}")
+    print(f"Quality: {task.quality_score:.2f}")
+    print(f"Cost: ${task.total_cost_usd:.4f}")
+    if task.final_result:
+        print(f"\nResult:\n{task.final_result}")
+    print('='*60)
+
+
+# ─── CLI ──────────────────────────────────────────────────────────────────────
+
+async def main():
+    args = sys.argv[1:]
+    if not args:
+        print(__doc__)
+        return
+
+    cmd = args[0]
+
+    if cmd == "init":
+        await init_system()
+        print("NEXUS initialized successfully.")
+
+    elif cmd == "start":
+        system = await init_system()
+        print("NEXUS running. Type your task and press Enter. Ctrl+C to exit.\n")
+        while True:
+            try:
+                prompt = input("nexus> ").strip()
+                if prompt:
+                    await run_task(system, prompt)
+            except (KeyboardInterrupt, EOFError):
+                print("\nShutting down NEXUS.")
+                break
+
+    elif cmd == "task":
+        if len(args) < 2:
+            print("Usage: nexus.py task \"your prompt here\"")
+            return
+        system = await init_system()
+        await run_task(system, " ".join(args[1:]))
+
+    elif cmd == "status":
+        system = await init_system()
+        orch = system["orchestrator"]
+        gov  = system["governance"]
+        print(json.dumps({
+            "orchestrator": orch.status(),
+            "quality":      gov.optimizer.report(),
+            "costs":        gov.audit.get_cost_summary(),
+        }, indent=2))
+
+    elif cmd == "costs":
+        system = await init_system()
+        summary = system["governance"].audit.get_cost_summary()
+        print(json.dumps(summary, indent=2))
+
+    else:
+        print(f"Unknown command: {cmd}")
+        print(__doc__)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

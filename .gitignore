@@ -1,0 +1,70 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# ── Runtime Data (never commit) ───────────────────────────────────────────────
+data/                     # ChromaDB vectors, audit.db, bias reports, model pickles
+logs/
+*.log
+*.db
+*.sqlite
+
+# ── ML Artifacts ──────────────────────────────────────────────────────────────
+*.pkl
+*.joblib
+*.h5
+*.onnx
+data/models/
+
+# ── Prompt versions (user-specific, not shared) ───────────────────────────────
+config/prompts/versions/
+
+# ── Regulatory tracker state (seeded on first run) ───────────────────────────
+config/regulatory/
+
+# ── Governance runtime ────────────────────────────────────────────────────────
+config/governance/budgets.yaml    # Contains cost limits (user-specific)
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+.npm
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Temp uploads ──────────────────────────────────────────────────────────────
+temp_uploads/
+tmp/

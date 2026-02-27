@@ -1,0 +1,44 @@
+# NEXUS Optimization Swarm
+# Handles prompt optimization, cost analysis, and continuous improvement loops.
+#
+# Typical trigger scenarios:
+#   - Scheduled weekly prompt optimization review
+#   - Quality score dip below threshold
+#   - Manual "optimize agent X" request
+#   - Post-deployment quality audit
+#
+# Workflow:
+#   1. prompt_optimizer_agent: analyze current prompts and generate variants
+#   2. cost_optimizer_agent: check if model routing should change
+#   3. critic_agent: validate optimization recommendations
+#   4. writer_agent: write improvement report for stakeholders
+
+swarm_id:    optimization_swarm
+description: Prompt optimization and cost efficiency — analyze quality stats, generate improved prompt variants, and produce improvement reports
+domain:      operations
+
+agents:
+  prompt_optimizer_agent:
+    description: "Analyze active prompts for target agents and generate DSPy-style improved variants"
+    default_operation: full_cycle     # analyze + generate variants in one pass
+    num_variants: 3
+
+  cost_optimizer_agent:
+    description: "Review current LLM spend and suggest model routing changes for cost savings"
+
+  critic_agent:
+    description: "Validate optimization recommendations — check for regressions or over-engineering"
+    scoring_rubric:
+      accuracy:       0.35    # Are the variant improvements substantiated?
+      completeness:   0.25    # All target agents covered?
+      clarity:        0.25    # Recommendations clear and actionable?
+      usefulness:     0.15    # Business value of changes
+
+  writer_agent:
+    description: "Synthesize prompt quality stats + cost analysis into an optimization report"
+
+workflow_defaults:
+  pattern:           sequential     # optimizer → cost → critic → writer
+  quality_threshold: 0.78
+  timeout_seconds:   300            # Variant generation can be slow for complex prompts
+  max_retries:       1

@@ -1,0 +1,68 @@
+# Engineering Swarm Configuration
+# Handles: code generation, debugging, testing, architecture, code review
+
+swarm_id: engineering_swarm
+description: "Code generation, testing, and engineering tasks"
+domain: engineering
+
+agents:
+  planner_agent:
+    description: "Decomposes engineering tasks into implementation steps"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      critical: "claude-opus-4-6"
+      private: "qwen2.5:72b"
+    system_prompt: "config/prompts/domain/planner_agent.md"
+    output_format: "structured_plan"  # JSON: [{step, description, files_to_modify}]
+
+  code_agent:
+    description: "Writes, modifies, and refactors code"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      critical: "claude-opus-4-6"
+      private: "qwen2.5:72b"
+    tools: ["file_read", "file_write", "shell_exec", "python_exec"]
+    system_prompt: "config/prompts/domain/code_agent.md"
+    execution:
+      sandbox: true           # Run code in sandboxed subprocess
+      timeout_seconds: 60     # Per code execution
+      allowed_languages: ["python", "javascript", "typescript", "bash", "sql"]
+
+  test_agent:
+    description: "Writes and runs tests; validates code correctness"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      private: "qwen2.5:32b"
+    tools: ["file_read", "file_write", "shell_exec", "pytest_runner"]
+    system_prompt: "config/prompts/domain/test_agent.md"
+
+  review_agent:
+    description: "Reviews code for correctness, security, and style"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      critical: "claude-opus-4-6"
+      private: "qwen2.5:72b"
+    system_prompt: "config/prompts/domain/review_agent.md"
+    checks:
+      - security_vulns      # OWASP top 10
+      - logic_errors
+      - style_consistency
+      - test_coverage
+
+  critic_agent:
+    description: "Final quality gate: does the code solve the problem?"
+    llm_routing:
+      default: "claude-haiku-4-5-20251001"
+      private: "qwen2.5:7b"
+    system_prompt: "config/prompts/system/critic_agent.md"
+    scoring_rubric:
+      correctness:  0.40
+      test_coverage: 0.25
+      security:     0.20
+      readability:  0.15
+
+workflow_defaults:
+  pattern: "feedback_loop"    # code → test → review → critic (loop until quality met)
+  quality_threshold: 0.80     # Higher bar for code
+  timeout_seconds: 600        # Code tasks take longer
+  max_retries: 3

@@ -1,0 +1,38 @@
+# NEXUS Communications Swarm
+# Handles all outbound communication workflows:
+#   - Email drafting and (with confirmation) sending
+#   - Slack notifications and thread management
+#   - Communication summarization and threading
+#
+# IMPORTANT: email_agent always returns a draft first.
+# The user must set metadata["send"]=true to actually send.
+# writer_agent provides final polishing before email_agent composes.
+
+swarm_id:    communications_swarm
+description: Email drafting/sending, Slack messaging, and communication summarization
+domain:      operations
+
+agents:
+  writer_agent:
+    description: "Refines raw intent into polished communication content"
+    tools:
+      - slack        # Can read Slack history for context
+
+  email_agent:
+    description: "Composes and (with confirmation) sends emails via SMTP or Resend"
+    tools:
+      - slack        # Post notifications after email sent
+
+  critic_agent:
+    description: "Reviews email drafts for tone, clarity, and completeness"
+    scoring_rubric:
+      accuracy:       0.20
+      completeness:   0.30
+      clarity:        0.35
+      usefulness:     0.15
+
+workflow_defaults:
+  pattern:           sequential     # writer → critic → email_agent
+  quality_threshold: 0.80           # High bar — comms represent the organization
+  timeout_seconds:   120
+  max_retries:       1

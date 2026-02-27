@@ -1,0 +1,37 @@
+# NEXUS Governance Swarm
+# Handles AI governance, compliance, and cost management tasks.
+# Integrates EU AI Act classification, bias auditing, and cost optimization.
+#
+# Typical trigger scenarios:
+#   - High-risk task detected by EU AI Act classifier
+#   - Daily/weekly cost budget review
+#   - Compliance audit request
+#   - Bias complaint or review request
+
+swarm_id:    governance_swarm
+description: AI governance — EU AI Act compliance, bias auditing, cost optimization, and reporting
+domain:      operations
+
+agents:
+  bias_auditor_agent:
+    description: "Audit outputs for demographic bias and representational harm"
+
+  cost_optimizer_agent:
+    description: "Monitor LLM spend, enforce budgets, suggest routing optimizations"
+
+  critic_agent:
+    description: "Validate governance findings quality and completeness"
+    scoring_rubric:
+      accuracy:       0.40
+      completeness:   0.30
+      clarity:        0.20
+      usefulness:     0.10
+
+  writer_agent:
+    description: "Synthesize governance findings into executive reports"
+
+workflow_defaults:
+  pattern:           sequential
+  quality_threshold: 0.80       # Governance reports require high quality
+  timeout_seconds:   180
+  max_retries:       1

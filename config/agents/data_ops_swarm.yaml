@@ -1,0 +1,54 @@
+# NEXUS DataOps Swarm
+# Handles data lineage audits, synthetic data generation, and regulatory
+# compliance checks for datasets and AI pipelines.
+#
+# Typical trigger scenarios:
+#   - New dataset ingested → trace lineage + check compliance
+#   - Privacy audit required → generate synthetic replacement
+#   - Upcoming regulatory deadline → run compliance checklist
+#   - Data quality issue detected → profile + validate
+#
+# Workflow:
+#   data_agent: load and profile the target dataset
+#   ml_pipeline_agent (optional): run quality checks / feature stats
+#   bias_auditor_agent: check for demographic bias in data
+#   critic_agent: validate findings
+#   writer_agent: produce data governance report
+
+swarm_id:    data_ops_swarm
+description: Data operations — lineage tracking, synthetic data generation, regulatory compliance, and data governance reporting
+domain:      data_science
+
+agents:
+  data_agent:
+    description: "Load, profile, and statistically summarize the target dataset"
+    tools:
+      - sqlite       # structured data sources
+      - postgres     # production databases
+      - filesystem   # CSV / JSON files
+      - chroma       # retrieve schema or domain context
+
+  bias_auditor_agent:
+    description: "Check dataset for demographic bias and representational imbalances"
+
+  critic_agent:
+    description: "Validate data quality findings and compliance assessment"
+    scoring_rubric:
+      accuracy:       0.40    # Statistical correctness
+      completeness:   0.30    # All required data checks present
+      clarity:        0.20    # Findings interpretable by non-technical stakeholders
+      usefulness:     0.10    # Actionable recommendations provided
+
+  writer_agent:
+    description: "Produce a data governance report: lineage, quality, bias findings, regulatory checklist"
+
+workflow_defaults:
+  pattern:           sequential
+  quality_threshold: 0.78
+  timeout_seconds:   240
+  max_retries:       1
+
+# Skills used by agents in this swarm (informational — loaded via SkillRegistry):
+#   - synthetic_data_generator  → privacy-safe data replacement
+#   - regulatory_tracker        → EU AI Act / GDPR obligation checklist
+#   - rag_evaluator             → retrieval quality assessment for RAG pipelines

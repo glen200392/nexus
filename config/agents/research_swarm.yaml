@@ -1,0 +1,62 @@
+# Research Swarm Configuration
+# Handles: information gathering, knowledge synthesis, fact-checking, RAG queries
+
+swarm_id: research_swarm
+description: "Parallel information gathering and synthesis"
+domain: research
+
+agents:
+  web_agent:
+    description: "Searches the internet for current information"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      private: "qwen2.5:32b"
+    tools: ["web_search", "url_fetch", "screenshot"]
+    system_prompt: "config/prompts/domain/web_agent.md"
+    max_results: 10
+
+  rag_agent:
+    description: "Retrieves from local knowledge base"
+    llm_routing:
+      default: "qwen2.5:32b"
+      private: "qwen2.5:32b"
+    tools: ["vector_search", "graph_query", "document_read"]
+    system_prompt: "config/prompts/domain/rag_agent.md"
+    retrieval_config:
+      mode: "hybrid"
+      top_k: 8
+      score_threshold: 0.65
+
+  analyst_agent:
+    description: "Synthesizes multiple sources into structured analysis"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      private: "qwen2.5:72b"
+    tools: ["data_viz", "table_builder"]
+    system_prompt: "config/prompts/domain/analyst_agent.md"
+
+  writer_agent:
+    description: "Produces final written output from analysis"
+    llm_routing:
+      default: "claude-sonnet-4-6"
+      private: "qwen2.5:32b"
+    tools: ["document_write", "format_output"]
+    system_prompt: "config/prompts/domain/writer_agent.md"
+
+  critic_agent:
+    description: "Evaluates output quality; used in feedback loop"
+    llm_routing:
+      default: "claude-haiku-4-5-20251001"
+      private: "qwen2.5:7b"
+    system_prompt: "config/prompts/system/critic_agent.md"
+    scoring_rubric:
+      accuracy:    0.35
+      completeness: 0.25
+      clarity:     0.20
+      citations:   0.20
+
+workflow_defaults:
+  pattern: "parallel"          # web_agent + rag_agent run in parallel
+  merge_strategy: "synthesis"  # writer_agent synthesizes all results
+  quality_threshold: 0.75
+  timeout_seconds: 180

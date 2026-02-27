@@ -1,0 +1,116 @@
+# NEXUS LLM Routing Configuration
+# Edit this file to tune model assignments without changing code.
+# Rules are evaluated in order; first match wins.
+
+defaults:
+  ollama_base_url: "http://localhost:11434"
+  fallback_model:  "qwen2.5:7b"
+  cost_budget_usd: 1.00          # per task cap
+  preferred_latency_ms: 5000
+
+privacy_enforcement:
+  PRIVATE:
+    allowed_providers: ["ollama"]
+    blocked_providers: ["anthropic", "openai", "google"]
+  INTERNAL:
+    allowed_providers: ["ollama", "anthropic", "openai", "google"]
+  PUBLIC:
+    allowed_providers: ["ollama", "anthropic", "openai", "google"]
+
+# ── Layer assignments ─────────────────────────────────────────────────────────
+# Each layer gets a specific model to prevent cost blowout.
+
+layer_models:
+  trigger:      null            # No LLM in Layer 1
+  perception:   "qwen2.5:7b"   # Layer 2 always local + private
+  management:   "qwen2.5:32b"  # Layer 3 planning — local preferred
+  memory:       "bge-m3"       # Embedding model for Layer 5
+
+# ── Domain-specific routing ───────────────────────────────────────────────────
+
+domain_routing:
+  perception:
+    model: "qwen2.5:7b"
+    reason: "Classification only; must be local for privacy"
+
+  engineering:
+    low:      "claude-haiku-4-5-20251001"
+    medium:   "claude-sonnet-4-6"
+    high:     "claude-sonnet-4-6"
+    critical: "claude-opus-4-6"
+    fallback: "qwen2.5:72b"
+
+  research:
+    low:      "qwen2.5:7b"
+    medium:   "claude-sonnet-4-6"
+    high:     "claude-sonnet-4-6"
+    critical: "claude-opus-4-6"
+    fallback: "qwen2.5:32b"
+
+  operations:
+    low:      "qwen2.5:7b"
+    medium:   "qwen2.5:32b"
+    high:     "claude-sonnet-4-6"
+    critical: "claude-opus-4-6"    # Operations + critical = must use best model
+    fallback: "qwen2.5:72b"
+
+  creative:
+    low:      "claude-haiku-4-5-20251001"
+    medium:   "claude-sonnet-4-6"
+    high:     "claude-sonnet-4-6"
+    critical: "claude-opus-4-6"
+    fallback: "qwen2.5:32b"
+
+  analysis:
+    low:      "qwen2.5:7b"
+    medium:   "claude-sonnet-4-6"
+    high:     "claude-sonnet-4-6"
+    critical: "claude-opus-4-6"
+    vision:   "gpt-4o"             # Vision analysis always GPT-4o
+    fallback: "qwen2.5:72b"
+
+# ── Special case overrides ────────────────────────────────────────────────────
+
+special_cases:
+  is_batch:
+    low:    "gemini-2.0-flash"     # Cheapest for bulk processing
+    medium: "gemini-2.0-flash"
+    high:   "claude-sonnet-4-6"
+
+  is_vision:
+    any: "gpt-4o"                  # Best multimodal regardless of domain
+
+  is_critical:
+    any: "claude-opus-4-6"         # Critical decisions: best model, always
+
+  requires_streaming:
+    preferred: "claude-sonnet-4-6"  # Claude streams well
+
+# ── Embedding models ──────────────────────────────────────────────────────────
+
+embedding_models:
+  PRIVATE:
+    model:     "bge-m3"
+    provider:  "ollama"
+    dim:       768
+    reason:    "Local, multilingual, zero data egress"
+
+  INTERNAL:
+    model:     "text-embedding-3-small"
+    provider:  "openai"
+    dim:       1536
+    reason:    "Higher quality for cloud knowledge base"
+
+  PUBLIC:
+    model:     "text-embedding-3-small"
+    provider:  "openai"
+    dim:       1536
+
+# ── Cost controls ─────────────────────────────────────────────────────────────
+
+cost_controls:
+  max_cost_per_task_usd:    1.00
+  max_cost_per_day_usd:     20.00
+  alert_threshold_usd:      10.00    # Alert user when daily cost exceeds this
+  prefer_local_below_cost:  0.10     # If cloud would cost <$0.10, local is still preferred
+  force_local_above_tokens: 50000    # If input > 50k tokens, use local to avoid big bill

@@ -1,0 +1,72 @@
+# NEXUS — Python dependencies
+# Install: pip install -r requirements.txt
+
+# ── Core async framework ──────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+httpx>=0.27.0
+pydantic>=2.9.0
+
+# ── LLM providers ─────────────────────────────────────────────────────────────
+anthropic>=0.40.0
+openai>=1.55.0
+google-generativeai>=0.8.0
+
+# ── Vector store ──────────────────────────────────────────────────────────────
+chromadb>=0.5.0
+
+# ── Web search ────────────────────────────────────────────────────────────────
+duckduckgo-search>=6.3.0
+
+# ── Skills dependencies ───────────────────────────────────────────────────────
+openpyxl>=3.1.5          # excel_designer skill
+python-pptx>=1.0.2       # pptx_builder skill
+pdfplumber>=0.11.4       # pdf_reader skill (primary)
+pypdf>=5.1.0             # pdf_reader skill (fallback)
+
+# ── Browser automation ────────────────────────────────────────────────────────
+playwright>=1.48.0       # browser_agent (run: playwright install chromium)
+
+# ── Config & serialization ────────────────────────────────────────────────────
+pyyaml>=6.0.2
+
+# ── Trigger layer ─────────────────────────────────────────────────────────────
+apscheduler>=3.10.4
+watchdog>=5.0.0
+
+# ── Optional: better terminal UI ─────────────────────────────────────────────
+rich>=13.9.0
+
+# ── AI Governance / Evaluation skills ────────────────────────────────────────
+# prompt_versioning, model_card_generator, rag_evaluator — stdlib + pyyaml only
+# arxiv_monitor_server, rss_aggregator_server — stdlib only (no extra deps)
+
+# ── Data analysis (data_agent) ────────────────────────────────────────────────
+pandas>=2.2.0
+matplotlib>=3.9.0
+numpy>=1.26.0         # correlation matrix in data_agent
+openpyxl>=3.1.5       # also required by excel_designer skill (dedup-safe)
+
+# ── ML pipeline (ml_pipeline_agent) ──────────────────────────────────────────
+scikit-learn>=1.5.0
+joblib>=1.4.0              # model serialization (scikit-learn dep)
+
+# ── Notebook execution (notebook_executor skill) ──────────────────────────────
+nbformat>=5.10.0
+nbconvert>=7.16.0
+papermill>=2.6.0           # parameterized notebook execution
+
+# ── PostgreSQL (postgres_server) ──────────────────────────────────────────────
+psycopg2-binary>=2.9.0
+
+# ── Data lineage (data_lineage.py) ────────────────────────────────────────────
+neo4j>=5.25.0              # Neo4j driver (primary backend for lineage graph)
+networkx>=3.4.0            # NetworkX fallback backend + graph algorithms
+
+# ── Synthetic data generation (synthetic_data_generator skill) ────────────────
+scipy>=1.14.0              # Gaussian copula + KS / chi-squared validation
+# numpy already listed above; scipy is the only new dep
+
+# ── Dev / testing ─────────────────────────────────────────────────────────────
+pytest>=8.3.0
+pytest-asyncio>=0.24.0

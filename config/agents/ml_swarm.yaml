@@ -1,0 +1,43 @@
+# NEXUS ML Swarm
+# Handles end-to-end machine learning tasks:
+#   - Data loading and validation (data_agent)
+#   - Pipeline training and model selection (ml_pipeline_agent)
+#   - Notebook execution for reproducible experiments (uses notebook_executor skill)
+#   - Result interpretation and reporting (writer_agent)
+#
+# The ml_pipeline_agent runs scikit-learn in an executor thread,
+# so it does not block the NEXUS async event loop.
+
+swarm_id:    ml_swarm
+description: End-to-end ML pipeline — data loading, model training, cross-validation, and reporting
+domain:      analysis
+
+agents:
+  data_agent:
+    description: "Load and statistically summarize the dataset"
+    tools:
+      - sqlite    # load data from SQLite
+      - postgres  # load data from PostgreSQL
+      - chroma    # retrieve domain knowledge for feature guidance
+
+  ml_pipeline_agent:
+    description: "Train scikit-learn pipeline, run cross-validation, extract feature importances"
+    tools:
+      - filesystem  # save model artifacts
+
+  critic_agent:
+    description: "Evaluate model quality, flag data leakage or overfitting"
+    scoring_rubric:
+      accuracy:       0.40    # Statistical correctness
+      completeness:   0.25    # All required metrics present
+      clarity:        0.20    # Results interpretable
+      usefulness:     0.15    # Business-actionable insights
+
+  writer_agent:
+    description: "Synthesize data stats + model metrics into a stakeholder report"
+
+workflow_defaults:
+  pattern:           sequential     # data → ml_pipeline → critic → writer
+  quality_threshold: 0.75
+  timeout_seconds:   600            # Allow 10 min for large dataset training
+  max_retries:       1

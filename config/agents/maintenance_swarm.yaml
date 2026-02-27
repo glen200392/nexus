@@ -1,0 +1,33 @@
+# NEXUS Maintenance Swarm
+# Handles background system health operations:
+#   - Memory consolidation (episodic → semantic distillation)
+#   - Temporal decay and pruning
+#   - Meta-pattern reflection
+#   - Knowledge base health reporting
+#
+# Typically triggered by SchedulerTrigger on a cron schedule
+# (e.g., every night at 2 AM local time).
+# Always runs PRIVATE privacy tier — never sends memory to cloud.
+
+swarm_id:    maintenance_swarm
+description: Background memory consolidation, temporal decay, meta-reflection, and KB health maintenance
+domain:      operations
+
+agents:
+  memory_agent:
+    description: "Core memory consolidation — distill, decay, reflect"
+    # No external tools needed; memory_agent uses memory_store directly
+
+  critic_agent:
+    description: "Validates consolidation quality"
+    scoring_rubric:
+      accuracy:       0.35
+      completeness:   0.25
+      clarity:        0.20
+      usefulness:     0.20
+
+workflow_defaults:
+  pattern:           sequential
+  quality_threshold: 0.70
+  timeout_seconds:   600    # Allow up to 10 minutes for full maintenance cycle
+  max_retries:       0      # Maintenance failures should be logged, not retried

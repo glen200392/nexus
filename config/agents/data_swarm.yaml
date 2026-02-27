@@ -1,0 +1,35 @@
+# NEXUS Data Swarm
+# Handles structured data analysis, reporting, and visualization tasks.
+# Uses data_agent for pandas/matplotlib work, rag_agent to enrich with
+# knowledge base context, writer_agent for final report synthesis.
+
+swarm_id:    data_swarm
+description: Structured data analysis — CSV/Excel/JSON ingestion, statistical summary, chart generation, business insights
+domain:      analysis
+
+agents:
+  data_agent:
+    description: "Primary data analyst — loads files, runs stats, generates charts"
+    tools:
+      - chroma        # query knowledge base for domain context
+      - sqlite        # access raw data from SQLite DBs
+
+  rag_agent:
+    description: "Enriches analysis with relevant knowledge from vector store"
+
+  critic_agent:
+    description: "Validates analysis quality and flags missing coverage"
+    scoring_rubric:
+      accuracy:       0.40
+      completeness:   0.30
+      clarity:        0.20
+      usefulness:     0.10
+
+  writer_agent:
+    description: "Synthesizes data insights and RAG context into polished report"
+
+workflow_defaults:
+  pattern:           sequential     # data → rag → critic → writer
+  quality_threshold: 0.75
+  timeout_seconds:   180
+  max_retries:       1

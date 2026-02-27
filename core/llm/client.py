@@ -65,10 +65,12 @@ class LLMClient:
         """Route to the correct provider and return unified LLMResponse."""
         start = time.time()
 
-        # PII guard before any cloud call
+        # PII guard before any cloud call (Bug 7: pass is_local from ModelConfig)
         if self._gov and not model.is_local:
             full_text = system + " ".join(m.content for m in messages)
-            _, ok = self._gov.guard_cloud_call(full_text, privacy_tier.value, model.model_id)
+            _, ok = self._gov.guard_cloud_call(
+                full_text, privacy_tier.value, model.model_id, is_local=model.is_local
+            )
             if not ok:
                 raise PermissionError(
                     f"Privacy policy blocked cloud call to {model.model_id} "

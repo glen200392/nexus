@@ -7,11 +7,13 @@ and collects quality feedback for continuous optimization.
 from __future__ import annotations
 
 import asyncio
+import json as _json
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger("nexus.orchestrator.master")
@@ -242,9 +244,14 @@ class MasterOrchestrator:
         Convert a PerceivedTask dict into a full OrchestratedTask with workflow plan.
         This is the core routing intelligence of Layer 3.
         """
-        domain     = perceived.get("domain", "research")
-        complexity = perceived.get("complexity", "medium")
-        task_type  = perceived.get("task_type", "general")
+        # Bug 1 fix: Convert enum objects to their string values for comparison
+        _raw_domain     = perceived.get("domain", "research")
+        _raw_complexity = perceived.get("complexity", "medium")
+        _raw_task_type  = perceived.get("task_type", "general")
+
+        domain     = _raw_domain.value if hasattr(_raw_domain, "value") else _raw_domain
+        complexity = _raw_complexity.value if hasattr(_raw_complexity, "value") else _raw_complexity
+        task_type  = _raw_task_type.value if hasattr(_raw_task_type, "value") else _raw_task_type
 
         task = OrchestratedTask(
             original_input=perceived.get("user_message", ""),
@@ -316,6 +323,7 @@ class MasterOrchestrator:
                 "agent": agent.agent_id,
                 "success": result.success,
                 "output": str(result.output)[:500],
+                "cost_usd": getattr(result, "cost_usd", 0.0),
             })
             if not result.success:
                 break
@@ -405,6 +413,78 @@ class MasterOrchestrator:
 
         return await self.harness.run_agent(judge_agent, context, task)
 
+    async def _execute_pipeline(
+        self, task: OrchestratedTask, agents: list, context
+    ) -> Any:
+        """
+        Pipeline execution: output of each agent feeds as input to the next.
+        Unlike sequential, each agent receives ONLY the previous agent's output.
+        """
+        result = None
+        for i, agent in enumerate(agents):
+            if result is not None:
+                # Replace context with previous output only
+                context.messages = [
+                    {"role": "user", "content": str(result.output)},
+                ]
+            result = await self.harness.run_with_retry(agent, context, task)
+            task.intermediate_results.append({
+                "agent": agent.agent_id,
+                "step": i,
+                "success": result.success,
+                "output": str(result.output)[:500],
+                "cost_usd": getattr(result, "cost_usd", 0.0),
+            })
+            if not result.success:
+                break
+        return result
+
+    async def _execute_hierarchical(
+        self, task: OrchestratedTask, agents: list, context
+    ) -> Any:
+        """
+        Hierarchical execution: first agent acts as coordinator, delegates to sub-agents.
+        The coordinator agent plans sub-tasks; remaining agents execute them.
+        """
+        if not agents:
+            raise ValueError("No agents for hierarchical execution")
+
+        coordinator = agents[0]
+        sub_agents = agents[1:] if len(agents) > 1 else agents
+
+        # Step 1: Coordinator plans the work
+        coord_result = await self.harness.run_with_retry(coordinator, context, task)
+        task.intermediate_results.append({
+            "agent": coordinator.agent_id,
+            "role": "coordinator",
+            "success": coord_result.success,
+            "output": str(coord_result.output)[:500],
+            "cost_usd": getattr(coord_result, "cost_usd", 0.0),
+        })
+
+        if not coord_result.success or not sub_agents:
+            return coord_result
+
+        # Step 2: Sub-agents execute in parallel
+        context.add_message("assistant", f"Coordinator plan: {coord_result.output}")
+        parallel_results = await self._execute_parallel(task, sub_agents, context)
+
+        # Step 3: Coordinator synthesizes results
+        for r in parallel_results:
+            if hasattr(r, "output") and r.output:
+                context.add_message("assistant", str(r.output)[:500])
+
+        context.add_message("user", "Synthesize all sub-agent results into a final answer.")
+        final = await self.harness.run_agent(coordinator, context, task)
+        task.intermediate_results.append({
+            "agent": coordinator.agent_id,
+            "role": "synthesizer",
+            "success": final.success,
+            "output": str(final.output)[:500],
+            "cost_usd": getattr(final, "cost_usd", 0.0),
+        })
+        return final
+
     # ── Main Entry Point ──────────────────────────────────────────────────────
 
     async def dispatch(self, perceived_task: dict) -> OrchestratedTask:
@@ -456,22 +536,29 @@ class MasterOrchestrator:
             agents  = [swarm.get_agent(aid) for aid in task.agent_sequence]
             context = swarm.build_context(perceived_task, task)
 
-            # Execute based on pattern
+            # Execute based on pattern (Bug 2 fix: added PIPELINE + HIERARCHICAL)
             if task.workflow_pattern == WorkflowPattern.SEQUENTIAL:
                 result = await self._execute_sequential(task, agents, context)
             elif task.workflow_pattern == WorkflowPattern.PARALLEL:
-                result = await self._execute_parallel(task, agents, context)
+                results = await self._execute_parallel(task, agents, context)
+                # Bug 5 fix: merge parallel results via swarm
+                result = swarm.merge_parallel_results(results)
+            elif task.workflow_pattern == WorkflowPattern.PIPELINE:
+                result = await self._execute_pipeline(task, agents, context)
             elif task.workflow_pattern == WorkflowPattern.FEEDBACK_LOOP:
                 result = await self._execute_feedback_loop(task, agents, context)
             elif task.workflow_pattern == WorkflowPattern.ADVERSARIAL:
                 result = await self._execute_adversarial(task, agents, context)
+            elif task.workflow_pattern == WorkflowPattern.HIERARCHICAL:
+                result = await self._execute_hierarchical(task, agents, context)
             else:
                 result = await self._execute_sequential(task, agents, context)
 
-            task.final_result   = result.output if hasattr(result, "output") else result
-            task.quality_score  = getattr(result, "quality_score", 0.5)
+            task.final_result   = result.get("best_output", result) if isinstance(result, dict) else (result.output if hasattr(result, "output") else result)
+            task.quality_score  = result.get("quality_score", 0.5) if isinstance(result, dict) else getattr(result, "quality_score", 0.5)
+            # Bug 4 fix: accumulate cost_usd from intermediate results
             task.total_cost_usd = sum(
-                r.get("cost_usd", 0) for r in task.intermediate_results
+                r.get("cost_usd", 0.0) for r in task.intermediate_results
             )
             task.status         = TaskStatus.COMPLETED
 
@@ -490,13 +577,53 @@ class MasterOrchestrator:
 
         return task
 
-    # ── Pause / Resume ────────────────────────────────────────────────────────
+    # ── Pause / Resume (Bug 3 fix: JSON file checkpoint persistence) ─────────
+
+    CHECKPOINT_DIR = Path(__file__).parent.parent.parent / "data" / "checkpoints"
+
+    def _checkpoint_path(self, task_id: str) -> Path:
+        return self.CHECKPOINT_DIR / f"{task_id}.json"
+
+    def _save_checkpoint(self, task: OrchestratedTask) -> None:
+        """Persist checkpoint to JSON file."""
+        self.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        checkpoint_data = {
+            "task_id": task.task_id,
+            "status": task.status.value,
+            "domain": task.domain,
+            "workflow_pattern": task.workflow_pattern.value,
+            "assigned_swarm": task.assigned_swarm,
+            "agent_sequence": task.agent_sequence,
+            "intermediate_results": task.intermediate_results,
+            "quality_score": task.quality_score,
+            "total_cost_usd": task.total_cost_usd,
+            "original_input": task.original_input,
+            "created_at": task.created_at,
+            "started_at": task.started_at,
+            "completed_step": len(task.intermediate_results),
+        }
+        self._checkpoint_path(task.task_id).write_text(
+            _json.dumps(checkpoint_data, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        logger.info("Checkpoint saved for task %s", task.task_id[:8])
+
+    def _load_checkpoint(self, task_id: str) -> dict | None:
+        """Load checkpoint from JSON file."""
+        path = self._checkpoint_path(task_id)
+        if not path.exists():
+            return None
+        try:
+            return _json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.error("Failed to load checkpoint for %s: %s", task_id[:8], exc)
+            return None
 
     async def pause_task(self, task_id: str) -> bool:
         task = self._active_tasks.get(task_id)
         if task and task.status == TaskStatus.RUNNING:
             task.status     = TaskStatus.PAUSED
             task.checkpoint = {"intermediate": task.intermediate_results}
+            self._save_checkpoint(task)
             logger.info("Task %s paused", task_id[:8])
             return True
         return False
@@ -505,8 +632,30 @@ class MasterOrchestrator:
         task = self._active_tasks.get(task_id)
         if task and task.status == TaskStatus.PAUSED:
             task.status = TaskStatus.RUNNING
-            logger.info("Task %s resumed", task_id[:8])
+            logger.info("Task %s resumed from in-memory checkpoint", task_id[:8])
             return True
+
+        # Try loading from file checkpoint
+        checkpoint = self._load_checkpoint(task_id)
+        if checkpoint:
+            task = OrchestratedTask(
+                task_id=checkpoint["task_id"],
+                original_input=checkpoint.get("original_input", ""),
+                domain=checkpoint.get("domain", "research"),
+                workflow_pattern=WorkflowPattern(checkpoint.get("workflow_pattern", "sequential")),
+                assigned_swarm=checkpoint.get("assigned_swarm", ""),
+                agent_sequence=checkpoint.get("agent_sequence", []),
+                intermediate_results=checkpoint.get("intermediate_results", []),
+                quality_score=checkpoint.get("quality_score", 0.0),
+                total_cost_usd=checkpoint.get("total_cost_usd", 0.0),
+                status=TaskStatus.RUNNING,
+                started_at=checkpoint.get("started_at"),
+            )
+            self._active_tasks[task_id] = task
+            logger.info("Task %s resumed from file checkpoint (step %d)",
+                        task_id[:8], checkpoint.get("completed_step", 0))
+            return True
+
         return False
 
     # ── Status ────────────────────────────────────────────────────────────────

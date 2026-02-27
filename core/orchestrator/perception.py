@@ -70,6 +70,13 @@ class PerceivedTask:
     analysis_confidence: float = 0.8
     analyzed_at:         float = field(default_factory=time.time)
 
+    # V2 extensions (defaults preserve backward compatibility)
+    required_capabilities: list[str] = field(default_factory=list)
+    estimated_tokens: int = 500
+    suggested_pattern: str = ""
+    handoff_eligible: bool = True
+    guardrails: list[str] = field(default_factory=list)
+
 
 # ─── PII Detector ────────────────────────────────────────────────────────────
 

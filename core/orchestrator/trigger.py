@@ -99,9 +99,12 @@ class BaseTrigger:
         pass
 
     async def emit(self, event: TaskEvent) -> None:
-        """Push a TaskEvent to the perception queue."""
-        await self.queue.put(event)
-        self._logger.debug("Emitted event %s from %s", event.event_id[:8], self.source)
+        """Push a TaskEvent to the perception queue (Bug 11: priority-aware)."""
+        # PriorityQueue sorts by (priority_value, created_at, event)
+        # Lower priority number = higher urgency (CRITICAL=1 first)
+        await self.queue.put((event.priority.value, event.created_at, event))
+        self._logger.debug("Emitted event %s from %s (priority=%s)",
+                           event.event_id[:8], self.source, event.priority.name)
 
 
 # ─── Scheduler Trigger ────────────────────────────────────────────────────────
@@ -297,10 +300,12 @@ class TriggerManager:
     """
     Manages all triggers and the shared event queue.
     Called by nexus.py at startup.
+
+    Bug 11 fix: uses asyncio.PriorityQueue so CRITICAL events are dequeued first.
     """
 
     def __init__(self, queue_maxsize: int = 100):
-        self.queue    = asyncio.Queue(maxsize=queue_maxsize)
+        self.queue    = asyncio.PriorityQueue(maxsize=queue_maxsize)
         self.triggers: list[BaseTrigger] = []
         self._tasks:   list[asyncio.Task] = []
 
@@ -321,8 +326,12 @@ class TriggerManager:
             task.cancel()
 
     async def next_event(self) -> TaskEvent:
-        """Get the next event from the priority queue."""
-        return await self.queue.get()
+        """Get the next event from the priority queue, unwrapping the priority tuple."""
+        item = await self.queue.get()
+        # Unwrap (priority_value, created_at, event) tuple
+        if isinstance(item, tuple):
+            return item[2]
+        return item  # backward compatibility
 
     def build_cli_trigger(self) -> CLITrigger:
         t = CLITrigger(self.queue)

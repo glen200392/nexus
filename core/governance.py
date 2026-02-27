@@ -91,13 +91,28 @@ class PIIScrubber:
 
 class AuditLogger:
     """
-    Writes immutable audit records to SQLite.
-    This is the single source of truth for what happened and when.
+    Writes immutable audit records to SQLite with optional Fernet encryption
+    and hash chain integrity verification.
+
+    Phase 1.5 additions:
+      - encrypted_payload: Fernet-encrypted JSON of the full record
+      - prev_hash: SHA-256 hash of the previous record (tamper detection chain)
+      - trace_id: OpenTelemetry trace ID for distributed tracing correlation
     """
 
-    def __init__(self, db_path: Path = AUDIT_DB_PATH):
+    def __init__(self, db_path: Path = AUDIT_DB_PATH, encryption_key: bytes | None = None):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        self._fernet = None
+        self._last_hash: str = ""
+
+        if encryption_key:
+            try:
+                from cryptography.fernet import Fernet
+                self._fernet = Fernet(encryption_key)
+            except ImportError:
+                logger.warning("cryptography not installed; audit encryption disabled")
+
         self._create_tables()
 
     def _create_tables(self) -> None:
@@ -116,7 +131,10 @@ class AuditLogger:
                 success       INTEGER DEFAULT 1,
                 quality_score REAL DEFAULT 0,
                 error         TEXT,
-                payload_hash  TEXT
+                payload_hash  TEXT,
+                encrypted_payload TEXT,
+                prev_hash     TEXT,
+                trace_id      TEXT
             )
         """)
         self._conn.execute(
@@ -127,20 +145,45 @@ class AuditLogger:
         )
         self._conn.commit()
 
-    def log(self, record: AuditRecord) -> None:
+        # Initialize hash chain from last record
+        cursor = self._conn.execute(
+            "SELECT payload_hash FROM audit_log ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if row:
+            self._last_hash = row[0] or ""
+
+    def _compute_hash(self, record: AuditRecord) -> str:
+        """Compute SHA-256 hash of record + previous hash for chain integrity."""
+        data = f"{record.record_id}:{record.timestamp}:{record.event_type}:{self._last_hash}"
+        return hashlib.sha256(data.encode()).hexdigest()[:32]
+
+    def _encrypt_payload(self, record: AuditRecord) -> str | None:
+        """Encrypt the full record as JSON."""
+        if self._fernet is None:
+            return None
+        payload = json.dumps(asdict(record), ensure_ascii=False, default=str)
+        return self._fernet.encrypt(payload.encode()).decode()
+
+    def log(self, record: AuditRecord, trace_id: str = "") -> None:
         try:
+            record.payload_hash = self._compute_hash(record)
+            encrypted = self._encrypt_payload(record)
+
             self._conn.execute(
                 """INSERT INTO audit_log VALUES
-                   (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     record.record_id, record.timestamp, record.event_type,
                     record.task_id, record.agent_id, record.action,
                     record.model_used, record.privacy_tier, record.cost_usd,
                     record.tokens_used, int(record.success), record.quality_score,
                     record.error, record.payload_hash,
+                    encrypted, self._last_hash, trace_id,
                 ),
             )
             self._conn.commit()
+            self._last_hash = record.payload_hash
         except Exception as exc:
             logger.error("Audit log write failed: %s", exc)
 
@@ -271,13 +314,16 @@ class GovernanceManager:
         text: str,
         privacy_tier: str,
         model: str,
+        is_local: bool = False,
     ) -> tuple[str, bool]:
         """
         Call before sending text to a cloud model.
         Returns (safe_text, ok_to_proceed).
         Blocks call if PRIVATE tier requests a cloud model.
+
+        Bug 7 fix: Use is_local flag from ModelConfig instead of string prefix matching.
         """
-        if privacy_tier == "PRIVATE" and not model.startswith("ollama/"):
+        if privacy_tier == "PRIVATE" and not is_local:
             logger.error(
                 "PRIVACY VIOLATION BLOCKED: PRIVATE tier text was about to be sent "
                 "to cloud model '%s'. Aborting.", model

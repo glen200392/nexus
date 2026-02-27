@@ -98,24 +98,24 @@ def _build_default_registry() -> list[ModelConfigV2]:
     """Return the default set of known models."""
     return [
         ModelConfigV2(
-            provider="ollama", model_id="qwen2.5:7b",
-            display_name="Qwen 2.5 7B", context_window=32_768,
+            provider="ollama", model_id="qwen2.5:latest",
+            display_name="Qwen 2.5", context_window=32_768,
             max_output=8_192, cost_per_1k_input=0.0, cost_per_1k_output=0.0,
             capabilities=ModelCapability(reasoning=True, code=True, tool_use=True, structured_output=True),
             privacy_tiers=["public", "internal", "confidential", "restricted"],
             is_local=True, avg_latency_ms=200.0,
         ),
         ModelConfigV2(
-            provider="ollama", model_id="qwen2.5:32b",
-            display_name="Qwen 2.5 32B", context_window=32_768,
+            provider="ollama", model_id="qwen2.5:latest",
+            display_name="Qwen 2.5 (32B alias)", context_window=32_768,
             max_output=8_192, cost_per_1k_input=0.0, cost_per_1k_output=0.0,
             capabilities=ModelCapability(reasoning=True, code=True, tool_use=True, structured_output=True, long_context=True),
             privacy_tiers=["public", "internal", "confidential", "restricted"],
             is_local=True, avg_latency_ms=800.0,
         ),
         ModelConfigV2(
-            provider="ollama", model_id="llama3.1:8b",
-            display_name="Llama 3.1 8B", context_window=128_000,
+            provider="ollama", model_id="llama3.2:latest",
+            display_name="Llama 3.2", context_window=128_000,
             max_output=8_192, cost_per_1k_input=0.0, cost_per_1k_output=0.0,
             capabilities=ModelCapability(reasoning=True, code=True, tool_use=True, long_context=True),
             privacy_tiers=["public", "internal", "confidential", "restricted"],

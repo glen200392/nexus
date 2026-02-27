@@ -198,9 +198,9 @@ def _init_v2_components(components: dict) -> dict:
     guardrails_engine = GuardrailsEngine()
     guardrails_config_dir = Path("config/guardrails")
     if guardrails_config_dir.exists():
-        guardrails_engine.load_from_directory(str(guardrails_config_dir))
+        guardrails_engine.load_rules_from_config(str(guardrails_config_dir))
 
-    handoff_manager = HandoffManager()
+    handoff_manager = HandoffManager(swarm_registry=components.get("swarm_registry"))
 
     orchestrator_v2 = MasterOrchestratorV2(
         swarm_registry=components.get("swarm_registry"),

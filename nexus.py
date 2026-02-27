@@ -19,6 +19,14 @@ import sys
 import logging
 from pathlib import Path
 
+# ── Package path bootstrap ────────────────────────────────────────────────────
+# Allow `from nexus.core.xxx import ...` when running nexus.py directly.
+# Adds the parent of the nexus/ directory to sys.path.
+_ROOT = Path(__file__).resolve().parent        # /Users/.../nexus
+_PARENT = _ROOT.parent                          # /Users/...
+if str(_PARENT) not in sys.path:
+    sys.path.insert(0, str(_PARENT))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s %(message)s",

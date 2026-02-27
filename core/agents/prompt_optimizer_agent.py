@@ -55,6 +55,9 @@ class PromptOptimizerAgent(BaseAgent):
         super().__init__(**kwargs)
         self._llm = llm_client or get_client()
 
+    def _build_system_prompt(self, context: AgentContext) -> str:
+        return self._optimizer_system_prompt()
+
     def _optimizer_system_prompt(self) -> str:
         if _PROMPT_OPTIMIZER_MD.exists():
             return _PROMPT_OPTIMIZER_MD.read_text(encoding="utf-8")

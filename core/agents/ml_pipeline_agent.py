@@ -264,6 +264,13 @@ class MLPipelineAgent(BaseAgent):
         super().__init__(**kwargs)
         self._llm = llm_client or get_client()
 
+    def _build_system_prompt(self, context: AgentContext) -> str:
+        return (
+            "You are an ML pipeline agent. Train, evaluate, and interpret machine learning "
+            "models using scikit-learn. Select the best model via cross-validation and "
+            "return structured metrics with feature importances."
+        )
+
     async def execute(self, context: AgentContext) -> AgentResult:
         operation = context.metadata.get("operation", "train")
 

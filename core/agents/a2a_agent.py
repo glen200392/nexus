@@ -222,6 +222,13 @@ class A2AAgent(BaseAgent):
         for url in A2A_AGENT_URLS:
             self._known_agents[url] = {}
 
+    def _build_system_prompt(self, context: AgentContext) -> str:
+        return (
+            "You are an A2A federation agent. Delegate tasks to remote agents via the "
+            "Google Agent-to-Agent protocol, discover external agent capabilities, "
+            "and integrate remote results into the local NEXUS workflow."
+        )
+
     async def execute(self, context: AgentContext) -> AgentResult:
         operation = context.metadata.get("operation", "delegate")
 

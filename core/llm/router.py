@@ -88,8 +88,9 @@ class RoutingDecision:
 MODEL_REGISTRY: dict[str, ModelConfig] = {
 
     # ── Local Models (Ollama) ──────────────────────────────────────────────
+    # model_id = exact tag as shown in `ollama list`
     "qwen2.5:7b": ModelConfig(
-        provider="ollama", model_id="qwen2.5:7b",
+        provider="ollama", model_id="qwen2.5:latest",   # installed: qwen2.5:latest (4.7 GB)
         context_window=32_768,
         cost_per_1k_input=0.0, cost_per_1k_output=0.0,
         avg_latency_ms=800,
@@ -97,7 +98,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         endpoint=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
     ),
     "qwen2.5:32b": ModelConfig(
-        provider="ollama", model_id="qwen2.5:32b",
+        provider="ollama", model_id="qwen2.5:latest",   # fallback to latest until 32b is pulled
         context_window=32_768,
         cost_per_1k_input=0.0, cost_per_1k_output=0.0,
         avg_latency_ms=2_500,
@@ -105,7 +106,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         endpoint=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
     ),
     "qwen2.5:72b": ModelConfig(
-        provider="ollama", model_id="qwen2.5:72b",
+        provider="ollama", model_id="qwen2.5:latest",   # fallback to latest until 72b is pulled
         context_window=32_768,
         cost_per_1k_input=0.0, cost_per_1k_output=0.0,
         avg_latency_ms=6_000,
@@ -113,7 +114,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         endpoint=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
     ),
     "llama3.1:8b": ModelConfig(
-        provider="ollama", model_id="llama3.1:8b",
+        provider="ollama", model_id="llama3.2:latest",  # installed: llama3.2:latest (2.0 GB)
         context_window=128_000,
         cost_per_1k_input=0.0, cost_per_1k_output=0.0,
         avg_latency_ms=700,
@@ -121,7 +122,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         endpoint=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
     ),
     "phi4:14b": ModelConfig(
-        provider="ollama", model_id="phi4:14b",
+        provider="ollama", model_id="gemma3:4b",        # installed: gemma3:4b (3.3 GB)
         context_window=16_384,
         cost_per_1k_input=0.0, cost_per_1k_output=0.0,
         avg_latency_ms=1_200,

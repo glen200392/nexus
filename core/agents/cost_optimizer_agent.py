@@ -173,6 +173,12 @@ class CostOptimizerAgent(BaseAgent):
 
         return status
 
+    def _build_system_prompt(self, context: AgentContext) -> str:
+        return (
+            "You are a cost optimization agent. Monitor LLM spending, "
+            "enforce budget constraints, and recommend model downgrades when needed."
+        )
+
     # ── Agent Execution ────────────────────────────────────────────────────────
 
     async def execute(self, context: AgentContext) -> AgentResult:

@@ -107,9 +107,13 @@ class SkillRegistry:
             return
 
         # Load module dynamically
+        # NOTE: module must be registered in sys.modules BEFORE exec_module so that
+        # Python 3.13's dataclasses can resolve cls.__module__ via sys.modules.
+        import sys as _sys
         module_name = f"nexus.skills.implementations.{skill_dir.name}"
         spec = importlib.util.spec_from_file_location(module_name, init_file)
         module = importlib.util.module_from_spec(spec)
+        _sys.modules[module_name] = module   # register before exec so @dataclass works
         spec.loader.exec_module(module)
 
         # Require SKILL_META and Skill class

@@ -1,0 +1,28 @@
+rules:
+  - name: pii_email
+    type: regex
+    stage: output
+    action: scrub
+    pattern: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    description: Scrub email addresses from output
+
+  - name: pii_phone
+    type: regex
+    stage: output
+    action: scrub
+    pattern: '\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'
+    description: Scrub phone numbers from output
+
+  - name: prompt_injection
+    type: regex
+    stage: input
+    action: block
+    pattern: '(?i)(ignore\s+(previous|above|all)\s+(instructions?|prompts?)|system\s*prompt|you\s+are\s+now)'
+    description: Block common prompt injection patterns
+
+  - name: output_length
+    type: static_analysis
+    stage: output
+    action: warn
+    pattern: 'max_chars:50000'
+    description: Warn if output exceeds 50000 characters

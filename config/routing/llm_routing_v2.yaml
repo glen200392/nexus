@@ -1,0 +1,290 @@
+# NEXUS v2 — LLM Routing Configuration
+# Defines models, capabilities, costs, and routing rules.
+
+version: "2.0"
+
+defaults:
+  temperature: 0.7
+  max_tokens: 4096
+  cache_ttl: 3600
+  retry_attempts: 2
+  timeout_seconds: 120
+
+models:
+  # --- Local (Ollama) Models ---
+  - id: qwen2.5:7b
+    provider: ollama
+    display_name: "Qwen 2.5 7B"
+    context_window: 32768
+    max_output: 8192
+    cost_per_1k_input: 0.0
+    cost_per_1k_output: 0.0
+    is_local: true
+    avg_latency_ms: 200
+    privacy_tiers: [public, internal, confidential, restricted]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: false
+      audio: false
+      tool_use: true
+      structured_output: true
+      extended_thinking: false
+      long_context: false
+
+  - id: qwen2.5:32b
+    provider: ollama
+    display_name: "Qwen 2.5 32B"
+    context_window: 32768
+    max_output: 8192
+    cost_per_1k_input: 0.0
+    cost_per_1k_output: 0.0
+    is_local: true
+    avg_latency_ms: 800
+    privacy_tiers: [public, internal, confidential, restricted]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: false
+      audio: false
+      tool_use: true
+      structured_output: true
+      extended_thinking: false
+      long_context: true
+
+  - id: llama3.1:8b
+    provider: ollama
+    display_name: "Llama 3.1 8B"
+    context_window: 128000
+    max_output: 8192
+    cost_per_1k_input: 0.0
+    cost_per_1k_output: 0.0
+    is_local: true
+    avg_latency_ms: 250
+    privacy_tiers: [public, internal, confidential, restricted]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: false
+      audio: false
+      tool_use: true
+      structured_output: false
+      extended_thinking: false
+      long_context: true
+
+  # --- Anthropic Models ---
+  - id: claude-opus-4-6
+    provider: anthropic
+    display_name: "Claude Opus 4.6"
+    context_window: 200000
+    max_output: 32000
+    cost_per_1k_input: 0.015
+    cost_per_1k_output: 0.075
+    is_local: false
+    avg_latency_ms: 3000
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: false
+      tool_use: true
+      structured_output: true
+      extended_thinking: true
+      long_context: true
+
+  - id: claude-sonnet-4-6
+    provider: anthropic
+    display_name: "Claude Sonnet 4.6"
+    context_window: 200000
+    max_output: 16000
+    cost_per_1k_input: 0.003
+    cost_per_1k_output: 0.015
+    is_local: false
+    avg_latency_ms: 1500
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: false
+      tool_use: true
+      structured_output: true
+      extended_thinking: true
+      long_context: true
+
+  - id: claude-haiku-4-5
+    provider: anthropic
+    display_name: "Claude Haiku 4.5"
+    context_window: 200000
+    max_output: 8192
+    cost_per_1k_input: 0.001
+    cost_per_1k_output: 0.005
+    is_local: false
+    avg_latency_ms: 600
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: false
+      tool_use: true
+      structured_output: true
+      extended_thinking: false
+      long_context: true
+
+  # --- OpenAI Models ---
+  - id: gpt-4o
+    provider: openai
+    display_name: "GPT-4o"
+    context_window: 128000
+    max_output: 16384
+    cost_per_1k_input: 0.005
+    cost_per_1k_output: 0.015
+    is_local: false
+    avg_latency_ms: 1200
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: true
+      tool_use: true
+      structured_output: true
+      extended_thinking: false
+      long_context: true
+
+  - id: o4-mini
+    provider: openai
+    display_name: "o4-mini"
+    context_window: 128000
+    max_output: 65536
+    cost_per_1k_input: 0.003
+    cost_per_1k_output: 0.012
+    is_local: false
+    avg_latency_ms: 2000
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: false
+      tool_use: true
+      structured_output: true
+      extended_thinking: true
+      long_context: true
+
+  # --- Google Models ---
+  - id: gemini-2.0-flash
+    provider: google
+    display_name: "Gemini 2.0 Flash"
+    context_window: 1000000
+    max_output: 8192
+    cost_per_1k_input: 0.0001
+    cost_per_1k_output: 0.0004
+    is_local: false
+    avg_latency_ms: 400
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: true
+      tool_use: true
+      structured_output: true
+      extended_thinking: false
+      long_context: true
+
+  - id: gemini-2.5-pro
+    provider: google
+    display_name: "Gemini 2.5 Pro"
+    context_window: 1000000
+    max_output: 65536
+    cost_per_1k_input: 0.007
+    cost_per_1k_output: 0.021
+    is_local: false
+    avg_latency_ms: 2500
+    privacy_tiers: [public, internal]
+    capabilities:
+      reasoning: true
+      code: true
+      vision: true
+      audio: true
+      tool_use: true
+      structured_output: true
+      extended_thinking: true
+      long_context: true
+
+# --- Routing Rules ---
+routing_rules:
+  - name: restricted_data
+    description: "Route restricted data exclusively to local models"
+    condition:
+      privacy_tier: restricted
+    action:
+      prefer_local: true
+      allowed_providers: [ollama]
+
+  - name: confidential_data
+    description: "Route confidential data to local models first"
+    condition:
+      privacy_tier: confidential
+    action:
+      prefer_local: true
+      allowed_providers: [ollama]
+
+  - name: high_complexity_reasoning
+    description: "Use strongest models for high complexity reasoning"
+    condition:
+      complexity: high
+      task_type: reasoning
+    action:
+      preferred_models: [claude-opus-4-6, gemini-2.5-pro, o4-mini]
+
+  - name: code_generation
+    description: "Prefer code-optimized models"
+    condition:
+      task_type: code
+    action:
+      preferred_models: [claude-sonnet-4-6, gpt-4o, qwen2.5:32b]
+
+  - name: fast_simple_tasks
+    description: "Use fast, cheap models for simple tasks"
+    condition:
+      complexity: low
+    action:
+      preferred_models: [gemini-2.0-flash, claude-haiku-4-5, qwen2.5:7b]
+      max_cost_usd: 0.001
+
+  - name: vision_tasks
+    description: "Route vision tasks to capable models"
+    condition:
+      required_capabilities: [vision]
+    action:
+      preferred_models: [gpt-4o, claude-sonnet-4-6, gemini-2.0-flash]
+
+  - name: audio_tasks
+    description: "Route audio tasks to audio-capable models"
+    condition:
+      required_capabilities: [audio]
+    action:
+      preferred_models: [gpt-4o, gemini-2.0-flash, gemini-2.5-pro]
+
+  - name: extended_thinking
+    description: "Route to models with extended thinking"
+    condition:
+      required_capabilities: [extended_thinking]
+    action:
+      preferred_models: [claude-opus-4-6, claude-sonnet-4-6, o4-mini, gemini-2.5-pro]
+
+# --- Cost Limits ---
+cost_limits:
+  daily_budget_usd: 50.0
+  per_request_max_usd: 1.0
+  alert_threshold_pct: 80
+
+# --- Circuit Breaker ---
+circuit_breaker:
+  failure_threshold: 5
+  recovery_timeout_seconds: 60
+  half_open_max_calls: 3

@@ -67,6 +67,9 @@ networkx>=3.4.0            # NetworkX fallback backend + graph algorithms
 scipy>=1.14.0              # Gaussian copula + KS / chi-squared validation
 # numpy already listed above; scipy is the only new dep
 
+# ── Async SQLite (RAGEngineV2, plugin sandbox) ──────────────────────────────
+aiosqlite>=0.20.0
+
 # ── Dev / testing ─────────────────────────────────────────────────────────────
 pytest>=8.3.0
 pytest-asyncio>=0.24.0

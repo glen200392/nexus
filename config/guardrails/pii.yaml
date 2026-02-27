@@ -1,0 +1,21 @@
+rules:
+  - name: taiwan_id
+    type: regex
+    stage: output
+    action: scrub
+    pattern: '[A-Z][12]\d{8}'
+    description: Scrub Taiwan national ID numbers
+
+  - name: credit_card
+    type: regex
+    stage: output
+    action: scrub
+    pattern: '\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b'
+    description: Scrub credit card numbers
+
+  - name: ssn
+    type: regex
+    stage: output
+    action: scrub
+    pattern: '\b\d{3}-\d{2}-\d{4}\b'
+    description: Scrub US Social Security numbers

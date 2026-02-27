@@ -1,0 +1,21 @@
+# NEXUS Plugin Registry
+# Plugins are auto-discovered from plugin directories.
+# This file can override settings or disable plugins.
+
+settings:
+  auto_discover: true
+  plugin_dirs:
+    - plugins/agents
+    - plugins/skills
+    - plugins/mcp
+    - plugins/guardrails
+  hot_reload: false
+  sandbox_timeout: 30.0
+  sandbox_max_memory_mb: 512
+
+# Override specific plugin settings:
+# overrides:
+#   my-plugin:
+#     enabled: false
+#     config:
+#       key: value

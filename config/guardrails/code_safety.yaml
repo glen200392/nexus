@@ -1,0 +1,14 @@
+rules:
+  - name: shell_injection
+    type: regex
+    stage: input
+    action: block
+    pattern: '(?i)(;\s*(rm|dd|mkfs|shutdown|reboot|kill\s+-9)|`[^`]*`|\$\([^)]*\))'
+    description: Block shell injection patterns
+
+  - name: file_system_access
+    type: regex
+    stage: input
+    action: warn
+    pattern: '(?i)(\/etc\/passwd|\/etc\/shadow|~\/\.ssh|\.env\b|credentials\.json)'
+    description: Warn on sensitive file system paths

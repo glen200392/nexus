@@ -1,0 +1,109 @@
+# NEXUS v2 — MCP Server Configuration
+# Defines available MCP servers, their transports, and connection details.
+
+version: "2.0"
+
+servers:
+  filesystem:
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/tsunglunho"]
+    description: "File system access for reading, writing, and searching files"
+    env: {}
+
+  git:
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-git"]
+    description: "Git repository operations"
+    env: {}
+
+  github:
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    description: "GitHub API access for issues, PRs, and repository management"
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+
+  memory:
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-memory"]
+    description: "Persistent knowledge graph memory"
+    env: {}
+
+  brave-search:
+    transport: stdio
+    command: npx
+    args: ["-y", "@anthropic/mcp-server-brave-search"]
+    description: "Web search via Brave Search API"
+    env:
+      BRAVE_API_KEY: "${BRAVE_API_KEY}"
+
+  fetch:
+    transport: stdio
+    command: npx
+    args: ["-y", "@anthropic/mcp-server-fetch"]
+    description: "HTTP fetch for web content retrieval"
+    env: {}
+
+  sqlite:
+    transport: stdio
+    command: npx
+    args: ["-y", "@anthropic/mcp-server-sqlite", "data/nexus.db"]
+    description: "SQLite database operations"
+    env: {}
+
+  sequential-thinking:
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    description: "Step-by-step reasoning and analysis"
+    env: {}
+
+  puppeteer:
+    transport: stdio
+    command: npx
+    args: ["-y", "@anthropic/mcp-server-puppeteer"]
+    description: "Browser automation and web scraping"
+    env: {}
+
+  slack:
+    transport: stdio
+    command: npx
+    args: ["-y", "@anthropic/mcp-server-slack"]
+    description: "Slack workspace integration"
+    env:
+      SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
+
+  postgres:
+    transport: stdio
+    command: npx
+    args: ["-y", "@anthropic/mcp-server-postgres", "${POSTGRES_CONNECTION_STRING}"]
+    description: "PostgreSQL database operations"
+    env:
+      POSTGRES_CONNECTION_STRING: "${POSTGRES_CONNECTION_STRING}"
+
+  docker:
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-docker"]
+    description: "Docker container management"
+    env: {}
+
+  notion:
+    transport: stdio
+    command: npx
+    args: ["-y", "@notionhq/mcp-server-notion"]
+    description: "Notion workspace integration"
+    env:
+      NOTION_API_KEY: "${NOTION_API_KEY}"
+
+  custom-rag:
+    transport: http
+    url: "http://localhost:8100"
+    description: "Custom RAG server for local document retrieval"
+    headers:
+      Authorization: "Bearer ${RAG_API_KEY}"
+    timeout: 60.0
